@@ -1,0 +1,26 @@
+version: "3.9"
+services:
+  api:
+    build: ./api
+    image: registry.nipa.cloud/front-test/tasks-api:1.0.0
+    env_file: .env
+    environment:
+      - PORT=3001
+    ports:
+      - "3001:3001"
+    networks: [appnet]
+
+  web:
+    build: ./my-app
+    image: registry.nipa.cloud/front-test/my-app:1.0.0
+    environment:
+      - API_BASE_URL=${API_BASE_URL}
+      - NODE_ENV=production
+    depends_on: [api]
+    ports:
+      - "3000:3000"
+    networks: [appnet]
+
+networks:
+  appnet:
+    driver: bridge
