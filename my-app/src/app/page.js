@@ -16,7 +16,7 @@ function Badge({ children, className = "" }) {
   );
 }
 
-/* ====================== Status buttons ====================== */
+/* ------------------- Status Buttons ------------------- */
 function StatusButton({ variant, active, onClick, children }) {
   const base =
     "inline-flex h-9 w-full items-center justify-center rounded-lg border text-xs transition-colors duration-150";
@@ -29,21 +29,17 @@ function StatusButton({ variant, active, onClick, children }) {
         "border-blue-300 bg-blue-600 text-white cursor-not-allowed shadow-inner",
     },
     in_progress: {
-      // 🔶 เปลี่ยนเป็นเหลือง
       normal:
         "border-yellow-500/70 bg-yellow-900/60 text-yellow-100 hover:bg-yellow-800/70 hover:border-yellow-400",
       active:
         "border-yellow-300 bg-yellow-500 text-black cursor-not-allowed shadow-inner",
     },
-
     done: {
-      // 🔴 เปลี่ยนเป็นแดง
       normal:
         "border-red-500/70 bg-red-900/60 text-red-100 hover:bg-red-800/70 hover:border-red-400",
       active:
         "border-red-300 bg-red-600 text-white cursor-not-allowed shadow-inner",
     },
-
   }[variant];
 
   return (
@@ -186,7 +182,7 @@ function TaskCard({ t, onMove, onDelete, onUpdate }) {
                 📅 {date}
               </Badge>
             )}
-            {/* 👇 ลบ badge สถานะออก (เหลือเฉพาะแถวล่าง) */}
+            {/* status badge removed */}
           </div>
 
           {/* ปุ่มสถานะ 3 ปุ่ม (เท่ากันเสมอ) */}
@@ -305,11 +301,11 @@ export default function Page() {
   };
 
   return (
-    <main className="mx-auto max-w-6xl space-y-6 p-6">
-      <div className="flex items-center justify-between rounded-2xl bg-gradient-to-b from-slate-800 to-slate-900 p-6 shadow-2xl">
-        <div>
-          <h1 className="text-2xl font-semibold">Todo List App</h1>
-          <p className="text-slate-300">Simplifies tasks for individuals and teams</p>
+    <main className="mx-auto max-w-7xl p-4 sm:p-6 lg:p-8 space-y-6">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between rounded-2xl bg-gradient-to-b from-slate-800 to-slate-900 p-4 sm:p-6 shadow-2xl">
+        <div className="min-w-0">
+          <h1 className="text-xl sm:text-2xl lg:text-3xl font-semibold truncate">Todo List App</h1>
+          <p className="text-slate-300 text-sm sm:text-base">Simplifies tasks for individuals and teams</p>
         </div>
       </div>
 
