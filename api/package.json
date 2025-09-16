@@ -3,8 +3,11 @@
   "type": "module",
   "dependencies": {
     "cors": "^2.8.5",
-    "express": "^4.19.2",
-    "mysql2": "^3.9.7"
+    "dotenv": "^17.2.2",
+    "express": "^4.21.2",
+    "mysql2": "^3.14.5"
   },
-  "scripts": { "start": "node index.js" }
+  "scripts": {
+    "start": "node index.js"
+  }
 }

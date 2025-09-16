@@ -5,7 +5,8 @@ export async function PUT(req, { params }) {
   const id = params.id;
   const body = await req.json();
   const r = await fetch(`${BASE}/tasks/${id}`, {
-    method: "PUT", headers: { "content-type": "application/json" },
+    method: "PUT",
+    headers: { "content-type": "application/json" },
     body: JSON.stringify(body)
   });
   const j = await r.json();
