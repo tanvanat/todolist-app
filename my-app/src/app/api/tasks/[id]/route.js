@@ -7,7 +7,7 @@ const BASE = process.env.API_BASE_URL || "http://localhost:3001";
 // ทุกฟังก์ชันที่ใช้ params ต้อง await context.params
 // PUT อัปเดต task
 export async function PUT(req, context) {
-  const { id } = await context.params;           // ✅ await
+  const { id } = await context.params;         
   const body = await req.json();
 
   const r = await fetch(`${BASE}/tasks/${id}`, {
@@ -27,7 +27,7 @@ export async function PUT(req, context) {
 }
 
 export async function DELETE(_req, context) {
-  const { id } = await context.params;           // ✅ await
+  const { id } = await context.params;           
   const r = await fetch(`${BASE}/tasks/${id}`, { method: "DELETE" });
   const txt = await r.text();
   if (!r.ok) {
