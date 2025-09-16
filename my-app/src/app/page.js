@@ -16,7 +16,78 @@ function Badge({ children, className = "" }) {
   );
 }
 
-/* ---------- Small Icon Buttons (no extra libs) ---------- */
+/* ====================== Status buttons ====================== */
+function StatusButton({ variant, active, onClick, children }) {
+  const base =
+    "inline-flex h-9 w-full items-center justify-center rounded-lg border text-xs transition-colors duration-150";
+
+  const styles = {
+    todo: {
+      normal:
+        "border-blue-500/70 bg-blue-900/60 text-blue-100 hover:bg-blue-800/70 hover:border-blue-400",
+      active:
+        "border-blue-300 bg-blue-600 text-white cursor-not-allowed shadow-inner",
+    },
+    in_progress: {
+      // 🔶 เปลี่ยนเป็นเหลือง
+      normal:
+        "border-yellow-500/70 bg-yellow-900/60 text-yellow-100 hover:bg-yellow-800/70 hover:border-yellow-400",
+      active:
+        "border-yellow-300 bg-yellow-500 text-black cursor-not-allowed shadow-inner",
+    },
+
+    done: {
+      // 🔴 เปลี่ยนเป็นแดง
+      normal:
+        "border-red-500/70 bg-red-900/60 text-red-100 hover:bg-red-800/70 hover:border-red-400",
+      active:
+        "border-red-300 bg-red-600 text-white cursor-not-allowed shadow-inner",
+    },
+
+  }[variant];
+
+  return (
+    <button
+      type="button"
+      disabled={active}
+      aria-pressed={active}
+      onClick={active ? undefined : onClick}
+      className={`${base} ${active ? styles.active : styles.normal}`}
+    >
+      {children}
+    </button>
+  );
+}
+
+function StatusGroup({ value, onChange }) {
+  return (
+    <div className="grid grid-cols-3 gap-2">
+      <StatusButton
+        variant="todo"
+        active={value === "todo"}
+        onClick={() => onChange("todo")}
+      >
+        {statusLabel.todo}
+      </StatusButton>
+      <StatusButton
+        variant="in_progress"
+        active={value === "in_progress"}
+        onClick={() => onChange("in_progress")}
+      >
+        {statusLabel.in_progress}
+      </StatusButton>
+      <StatusButton
+        variant="done"
+        active={value === "done"}
+        onClick={() => onChange("done")}
+      >
+        {statusLabel.done}
+      </StatusButton>
+    </div>
+  );
+}
+
+/* ------------------- Small Icon Buttons ------------------- */
 function IconButton({ title, onClick, children }) {
   return (
     <button
@@ -53,7 +124,7 @@ const XIcon = (props) => (
   </svg>
 );
 
-/* ---------- Task Card ---------- */
+/* ----------------------- Task Card ----------------------- */
 function TaskCard({ t, onMove, onDelete, onUpdate }) {
   const [editing, setEditing] = useState(false);
   const [etitle, setETitle] = useState(t.title);
@@ -62,13 +133,6 @@ function TaskCard({ t, onMove, onDelete, onUpdate }) {
   const date = t.due_date
     ? new Date(t.due_date).toLocaleDateString("en-US", { month: "short", day: "numeric" })
     : null;
-
-  const statusColor =
-    {
-      todo: "bg-slate-800/60 border-slate-600 text-slate-200",
-      in_progress: "bg-amber-800/40 border-amber-600 text-amber-100",
-      done: "bg-emerald-900/40 border-emerald-600 text-emerald-100",
-    }[t.status] || "bg-slate-800/60 border-slate-600 text-slate-200";
 
   const startEdit = () => {
     setETitle(t.title);
@@ -93,7 +157,7 @@ function TaskCard({ t, onMove, onDelete, onUpdate }) {
 
   return (
     <div className="relative rounded-2xl border border-slate-700/60 bg-slate-900/40 p-4 backdrop-blur-sm">
-      {/* top-right icons */}
+      {/* icons มุมขวาบน */}
       <div className="absolute right-2 top-2 flex gap-1 opacity-80 hover:opacity-100">
         {editing ? (
           <>
@@ -114,36 +178,20 @@ function TaskCard({ t, onMove, onDelete, onUpdate }) {
           {t.description && <div className="mt-1 text-sm text-slate-300/80">{t.description}</div>}
 
           <div className="mt-2 flex flex-wrap gap-2">
-            <Badge className="bg-slate-800/70 border-slate-600 text-slate-100">👤 {t.assignee || "ไม่ระบุ"}</Badge>
-            {date && <Badge className="bg-slate-800/70 border-slate-600 text-slate-100">📅 {date}</Badge>}
-            <Badge className={statusColor}>{statusLabel[t.status]}</Badge>
+            <Badge className="bg-slate-800/70 border-slate-600 text-slate-100">
+              👤 {t.assignee || "ไม่ระบุ"}
+            </Badge>
+            {date && (
+              <Badge className="bg-slate-800/70 border-slate-600 text-slate-100">
+                📅 {date}
+              </Badge>
+            )}
+            {/* 👇 ลบ badge สถานะออก (เหลือเฉพาะแถวล่าง) */}
           </div>
 
-          <div className="mt-3 flex flex-wrap gap-2">
-            {t.status !== "todo" && (
-              <button
-                onClick={() => onMove(t.id, "todo")}
-                className="rounded-lg border border-slate-600 bg-slate-800/60 px-2 py-1 text-xs"
-              >
-                To Do
-              </button>
-            )}
-            {t.status !== "in_progress" && (
-              <button
-                onClick={() => onMove(t.id, "in_progress")}
-                className="rounded-lg border border-amber-600 bg-amber-900/40 px-2 py-1 text-xs"
-              >
-                In Progress
-              </button>
-            )}
-            {t.status !== "done" && (
-              <button
-                onClick={() => onMove(t.id, "done")}
-                className="rounded-lg border border-emerald-600 bg-emerald-900/40 px-2 py-1 text-xs"
-              >
-                Done
-              </button>
-            )}
+          {/* ปุ่มสถานะ 3 ปุ่ม (เท่ากันเสมอ) */}
+          <div className="mt-3">
+            <StatusGroup value={t.status} onChange={(s) => onMove(t.id, s)} />
           </div>
         </>
       ) : (
@@ -170,14 +218,13 @@ function TaskCard({ t, onMove, onDelete, onUpdate }) {
   );
 }
 
-/* ---------- Page ---------- */
+/* ------------------------- Page ------------------------- */
 export default function Page() {
   const [items, setItems] = useState([]);
   const [filters, setFilters] = useState({ status: "all", assignee: "all", q: "" });
   const [view, setView] = useState("board");
   const [form, setForm] = useState({ title: "", description: "", assignee: "", due_date: "" });
 
-  // load with filters (server-side filtering via Next API -> Express)
   const load = async () => {
     const qs = new URLSearchParams(
       Object.fromEntries(Object.entries(filters).filter(([, v]) => v && v !== "all"))
@@ -202,7 +249,6 @@ export default function Page() {
   };
   useEffect(() => { load(); }, [filters]);
 
-  // actions
   const createTask = async (e) => {
     e.preventDefault();
     if (!form.title.trim()) return;
@@ -238,13 +284,11 @@ export default function Page() {
     await load();
   };
 
-  // derived
   const assignees = useMemo(() => {
     const s = new Set(items.map((i) => i.assignee).filter(Boolean));
     return Array.from(s);
   }, [items]);
 
-  // grouping
   const group = (status) => items.filter((i) => i.status === status);
   const counts = {
     todo: group("todo").length,
@@ -252,7 +296,6 @@ export default function Page() {
     done: group("done").length,
   };
 
-  // drag & drop
   const onDragEnd = (result) => {
     const { destination, source, draggableId } = result || {};
     if (!destination) return;
@@ -263,7 +306,6 @@ export default function Page() {
 
   return (
     <main className="mx-auto max-w-6xl space-y-6 p-6">
-      {/* hero */}
       <div className="flex items-center justify-between rounded-2xl bg-gradient-to-b from-slate-800 to-slate-900 p-6 shadow-2xl">
         <div>
           <h1 className="text-2xl font-semibold">Todo List App</h1>
@@ -271,7 +313,6 @@ export default function Page() {
         </div>
       </div>
 
-      {/* filters */}
       <div className="flex flex-wrap gap-3">
         <select
           value={filters.status}
@@ -325,7 +366,6 @@ export default function Page() {
         </div>
       </div>
 
-      {/* new task */}
       <form id="new" onSubmit={createTask} className="rounded-2xl border border-slate-700/60 bg-slate-900/40 p-4">
         <div className="grid gap-3 md:grid-cols-2">
           <input
@@ -362,7 +402,6 @@ export default function Page() {
         </div>
       </form>
 
-      {/* content */}
       {view === "board" ? (
         <DragDropContext onDragEnd={onDragEnd}>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
