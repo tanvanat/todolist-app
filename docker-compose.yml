@@ -1,26 +1,49 @@
 version: "3.9"
+
 services:
   api:
-    build: ./api
-    image: registry.nipa.cloud/front-test/tasks-api:1.0.0
-    env_file: .env
+    build:
+      context: ./api
+    image: registry.nipa.cloud/front-test-1/tasks-api:1.0.0
+    env_file: ./api/.env
     environment:
-      - PORT=3001
+      PORT: "3001"
+      # ถ้าจะคุยกับ db service ใน compose → DB_HOST=db
+      # ถ้าจะคุย MySQL ที่ host จริง → DB_HOST=host.docker.internal
     ports:
       - "3001:3001"
+    depends_on:
+      - db
     networks: [appnet]
 
   web:
-    build: ./my-app
-    image: registry.nipa.cloud/front-test/my-app:1.0.0
+    build:
+      context: ./my-app
+      target: runner
+    image: registry.nipa.cloud/front-test-1/my-app:1.0.0
+    env_file: ./my-app/.env
     environment:
-      - API_BASE_URL=${API_BASE_URL}
-      - NODE_ENV=production
-    depends_on: [api]
+      NODE_ENV: production
+      # ฝั่ง server (SSR) ใช้ service name api
+      API_BASE_URL: http://api:3001
+    depends_on:
+      - api
     ports:
       - "3000:3000"
+    networks: [appnet]
+
+  db:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: Tanvanat123446
+      MYSQL_DATABASE: todo_app
+    volumes:
+      - db-data:/var/lib/mysql
     networks: [appnet]
 
 networks:
   appnet:
     driver: bridge
+
+volumes:
+  db-data:
