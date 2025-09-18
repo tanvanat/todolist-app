@@ -1,49 +1,40 @@
 version: "3.9"
 
 services:
+  web:
+    image: registry.nipa.cloud/front-test-1/my-app:1.0.0
+    env_file:
+      - ./my-app/.env
+    environment:
+      # ฝั่งเบราว์เซอร์เรียก API เครื่องคุณเอง
+      NEXT_PUBLIC_API_BASE_URL: "http://localhost:3001"
+      NODE_ENV: "production"
+    ports:
+      - "3000:3000" # web บน host:3000
+    depends_on: []  # ไม่ผูกกับ api
+
+  # เปิดเฉพาะเมื่ออยากรัน API ในคอนเทนเนอร์ (ปกติจะไม่เปิด)
   api:
-    build:
-      context: ./api
     image: registry.nipa.cloud/front-test-1/tasks-api:1.0.0
-    env_file: ./api/.env
+    env_file:
+      - ./api/.env
     environment:
       PORT: "3001"
-      # ถ้าจะคุยกับ db service ใน compose → DB_HOST=db
-      # ถ้าจะคุย MySQL ที่ host จริง → DB_HOST=host.docker.internal
-    # ports:
-    #   - "3001:3001"
-    depends_on:
-      - db
-    networks: [appnet]
-
-  web:
-    build:
-      context: ./my-app
-      target: runner
-    image: registry.nipa.cloud/front-test-1/my-app:1.0.0
-    env_file: ./my-app/.env
-    environment:
-      NODE_ENV: production
-      # ฝั่ง server (SSR) ใช้ service name api
-      API_BASE_URL: http://api:3001
-    depends_on:
-      - api
     ports:
-      - "3000:3000"
-    networks: [appnet]
+      - "3002:3001"  # ถ้าจะเปิด ใช้ host:3002 -> container:3001 เพื่อไม่ชน 3001
+    profiles: ["with-api"]
 
-  db:
-    image: mysql:8.0
+  # ถ้าจะใช้ MySQL ในคอนเทนเนอร์ และ API นอกรันที่ 127.0.0.1 ต้อง publish พอร์ต
+  #อันนี้คือMysql ในcontainerไม่ใช่บนwindowเพราะฉนั้นใช้port 3306ไม่ได้จะชนกัน
+  mysql:
+    image: mysql:8
     environment:
       MYSQL_ROOT_PASSWORD: Tanvanat123446
       MYSQL_DATABASE: todo_app
+    ports:
+      - "3307:3306"   # เปลี่ยนhost-portเป็น 3307
     volumes:
-      - db-data:/var/lib/mysql
-    networks: [appnet]
-
-networks:
-  appnet:
-    driver: bridge
+      - mysql_data:/var/lib/mysql
 
 volumes:
-  db-data:
+  mysql_data:
