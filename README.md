@@ -9,18 +9,14 @@ A minimal, fast **To‑Do** app with:
 
 Built with **Next.js (App Router)** for the frontend, **Express** for the API, and **MySQL** for storage.
 
----
-
 ## Stack
 
-* **Frontend:** Next.js (App Router), Tailwind CSS (utility classes in `globals.css`)
+* **Frontend:** Next.js (App Router), Tailwind CSS
 * **API:** Node.js + Express 4
-* **DB:** MySQL 8 + `mysql2/promise`
+* **DB:** MySQL 8 in Docker (host port 3307 → container 3306)
 * **DND:** `@hello-pangea/dnd`
 
 > Note: Next.js 15 requires `await context.params` in dynamic API routes.
-
----
 
 ## Project Structure
 
@@ -28,7 +24,7 @@ Built with **Next.js (App Router)** for the frontend, **Express** for the API, a
 CRUD/
 ├─ api/                      # Express API
 │  ├─ index.js
-│  └─ .env                   # DB connection variables (sample below)
+│  └─ .env                   # DB connection variables
 ├─ my-app/                   # Next.js (App Router)
 │  └─ src/app/
 │     ├─ api/
@@ -36,114 +32,33 @@ CRUD/
 │     │  └─ tasks/[id]/route.js       # /api/tasks/:id → proxy to Express PUT/DELETE
 │     ├─ page.js
 │     └─ layout.js
-└─ sql/
-   └─ schema.sql
+└─ docker-compose.yml        # runs only MySQL (dev)
+
 ```
-
----
-
 ## Quick Start
 
-1. **Create DB schema**
+1. Start MySQL (Docker)
+```
+docker compose up -d mysql 
+#compose ควร map พอร์ตเป็น: 3307:3306
 
-   ```bash
-   # Windows PowerShell inside project root (CRUD/)
-   mysql -u root -p < .\sql\schema.sql
-   ```
-2. **Run API**
-
-   ```bash
-   cd api
-   npm i
-   node index.js          # API on http://localhost:3001
-   ```
-3. **Run Next.js**
-
-   ```bash
-   cd ../my-app
-   npm i
-   npm run dev            # Web on http://localhost:3000
-   ```
-4. Open [http://localhost:3000](http://localhost:3000)
-
----
-
-## Database
-
-`sql/schema.sql` creates DB and table:
-
-```sql
-CREATE DATABASE IF NOT EXISTS todo_app CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;
-USE todo_app;
-
-CREATE TABLE IF NOT EXISTS tasks (
-  id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
-  title VARCHAR(255) NOT NULL,
-  description TEXT NULL,
-  status ENUM('todo','in_progress','done') NOT NULL DEFAULT 'todo',
-  assignee VARCHAR(80) NULL,
-  due_date DATE NULL,
-  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
+#ทดสอบ: 
+mysql -h 127.0.0.1 -P 3307 -u root -p
+```
+2. Run API (Express)
+```
+cd api
+npm i
+node index.js       # http://localhost:5000
+# ทดสอบ:
+curl -i http://localhost:5000/health || curl -i http://localhost:5000/tasks
 ```
 
-Seed (optional):
-
-```sql
-INSERT INTO tasks (title, description, status, assignee, due_date) VALUES
-('Plan content','Propose content and planning','todo','Fai','2025-08-13'),
-('Prepare meeting presentation','Propose budget topic','todo','Best','2025-08-14'),
-('Submit meeting report','Report on project progress','todo','Fai','2025-08-15'),
-('Edit 3 clips to completion','Launch event clips','in_progress','Fai','2025-08-11'),
-('Edit Zigmadey clip',NULL,'done','Team','2025-08-08');
+3. Run Web (Next.js)
 ```
-
-> **Windows inside MySQL monitor** (instead of redirect):
->
-> ```sql
-> SOURCE C:/Users/<you>/Nipa/CRUD/sql/schema.sql;
-> ```
-
----
-
-## Environment Variables
-
-### `api/.env` (Express → MySQL)
-
-```env
-DB_HOST=127.0.0.1
-DB_PORT=3306
-DB_USER=root
-DB_PASSWORD=your_mysql_password
-DB_NAME=todo_app
-PORT=3001
-```
-
-> The code also checks `DB_PASS` as a fallback.
-
-### `my-app/.env.local` (optional; Next → Express)
-
-```env
-API_BASE_URL=http://localhost:3001
-```
-
-If not set, proxy falls back to `http://localhost:3001`.
-
----
-
-## Run & Test
-
-**API health & tasks**
-
-```bash
-curl -i http://localhost:3001/healthz
-curl -i http://localhost:3001/tasks
-```
-
-**Next proxy**
-
-```bash
-curl -i http://localhost:3000/api/tasks
+cd ../my-app
+npm i
+npm run dev -p 3001   # http://localhost:3001
 ```
 
 ---
