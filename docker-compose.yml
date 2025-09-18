@@ -10,8 +10,8 @@ services:
       PORT: "3001"
       # ถ้าจะคุยกับ db service ใน compose → DB_HOST=db
       # ถ้าจะคุย MySQL ที่ host จริง → DB_HOST=host.docker.internal
-    ports:
-      - "3001:3001"
+    # ports:
+    #   - "3001:3001"
     depends_on:
       - db
     networks: [appnet]
