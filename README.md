@@ -1,5 +1,9 @@
 # Todo List App – Next.js + Express + MySQL
 
+## Architecture Diagram
+
+![App Diagram](./app-diagram.png)
+
 A minimal, fast **To‑Do** app with:
 
 * Board & List views
@@ -60,5 +64,3 @@ cd ../my-app
 npm i
 npm run dev -p 3001   # http://localhost:3001
 ```
-
----
