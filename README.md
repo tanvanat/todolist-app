@@ -4,6 +4,12 @@
 
 ![App Diagram](./app-diagram.png)
 
+# Outcome local
+![App Diagram](./todolistapp-real.png)
+
+# Outcome app on kube
+![App Diagram](./todolistapp-kube.png)
+
 A minimal, fast **To‑Do** app with:
 
 * Board & List views
