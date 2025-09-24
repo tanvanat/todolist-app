@@ -3,3 +3,8 @@
 
 -backend: "node index.js"
 -frontend: "npm run dev"
+
+port
+Frontendเป็น 3001
+Api/Backend เป็น 5000
+Sql เราใช้3307นะ เพราะเราใช้mysqlบนdocker
