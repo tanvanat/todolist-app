@@ -1,0 +1,64 @@
+"use client";
+
+export default function Filters({
+  filters,
+  setFilters,
+  assignees,
+  view,
+  setView,
+}) {
+  return (
+    <div className="flex flex-wrap gap-3">
+      <select
+        value={filters.status}
+        onChange={(e) => setFilters((f) => ({ ...f, status: e.target.value }))}
+        className="rounded-xl border border-slate-600 bg-slate-900 px-3 py-2"
+      >
+        <option value="all">All statuses</option>
+        <option value="todo">To Do</option>
+        <option value="in_progress">In Progress</option>
+        <option value="done">Done</option>
+      </select>
+
+      <select
+        value={filters.assignee}
+        onChange={(e) => setFilters((f) => ({ ...f, assignee: e.target.value }))}
+        className="rounded-xl border border-slate-600 bg-slate-900 px-3 py-2"
+      >
+        <option value="all">All assignees</option>
+        {assignees.map((a) => (
+          <option key={a} value={a}>{a}</option>
+        ))}
+      </select>
+
+      <input
+        value={filters.q}
+        onChange={(e) => setFilters((f) => ({ ...f, q: e.target.value }))}
+        placeholder="Find…"
+        className="w-52 rounded-xl border border-slate-600 bg-slate-900 px-3 py-2"
+      />
+
+      <button
+        onClick={() => setFilters({ status: "all", assignee: "all", q: "" })}
+        className="rounded-xl border border-slate-600 bg-slate-900 px-3 py-2"
+      >
+        Clear
+      </button>
+
+      <div className="ml-auto flex items-center gap-2 rounded-xl border border-slate-600 bg-slate-900 p-1">
+        <button
+          onClick={() => setView("board")}
+          className={`rounded-lg px-3 py-1 ${view === "board" ? "bg-slate-700" : ""}`}
+        >
+          Board
+        </button>
+        <button
+          onClick={() => setView("list")}
+          className={`rounded-lg px-3 py-1 ${view === "list" ? "bg-slate-700" : ""}`}
+        >
+          List
+        </button>
+      </div>
+    </div>
+  );
+}
