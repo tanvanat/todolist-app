@@ -2,9 +2,9 @@
 import { useEffect, useState } from "react";
 
 export default function ThemeToggle() {
-  const [mode, setMode] = useState("light");
+  const [mode, setMode] = useState("light"); //ค่าเริ่มต้น
 
-  // ตั้งค่าเริ่มต้นจาก localStorage หรือ system preference
+  {/* modeเริ่ม ดูthemeใน localStorageว่าlight/dark*/}
   useEffect(() => {
     const saved = typeof window !== "undefined" ? localStorage.getItem("theme") : null;
     const shouldDark =
@@ -13,13 +13,15 @@ export default function ThemeToggle() {
     setMode(shouldDark ? "dark" : "light");
   }, []);
 
+  {/* คำนวณโหมดใหม่ */}
   const toggle = () => {
     const next = mode === "dark" ? "light" : "dark";
     document.documentElement.classList.toggle("dark", next === "dark");
-    localStorage.setItem("theme", next);
+    localStorage.setItem("theme", next); //เก็บค่าnextลงlocalStorage → จะได้จำได้คราวหน้า
     setMode(next);
   };
 
+  {/* UIปุ่ม */}
   return (
     <button
       onClick={toggle}

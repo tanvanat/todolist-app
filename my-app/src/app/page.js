@@ -9,11 +9,12 @@ import ThemeToggle from "@/components/ThemeToggle";
 const statusLabel = { todo: "To Do", in_progress: "In Progress", done: "Done" };
 
 export default function Page() {
+  //attribute
   const [items, setItems] = useState([]);
   const [filters, setFilters] = useState({ status: "all", assignee: "all", q: "" });
   const [view, setView] = useState("board");
   const [form, setForm] = useState({ title: "", description: "", assignee: "", due_date: "" });
-
+  //method
   const load = async () => {
     const qs = new URLSearchParams(
       Object.fromEntries(Object.entries(filters).filter(([, v]) => v && v !== "all"))
@@ -28,6 +29,7 @@ export default function Page() {
   };
   useEffect(() => { load(); }, [filters]);
 
+  {/* 3.createTaskนั้นๆ */}
   const createTask = async (e) => {
     e.preventDefault();
     if (!form.title.trim()) return;
@@ -44,7 +46,7 @@ export default function Page() {
     await load();
   };
   const remove = async (id) => { await fetch(`/api/tasks/${id}`, { method: "DELETE" }); await load(); };
-
+//
   const assignees = useMemo(() => Array.from(new Set(items.map(i => i.assignee).filter(Boolean))), [items]);
   const group = (status) => items.filter((i) => i.status === status);
   const counts = { todo: group("todo").length, in_progress: group("in_progress").length, done: group("done").length };
@@ -75,7 +77,7 @@ export default function Page() {
         view={view}
         setView={setView}
       />
-
+      {/* 2.เวลามีคนกดสร้างTaskจากNewTaskForm.jsจะส่งมาfunctionนี้ */}
       <NewTaskForm form={form} setForm={setForm} onSubmit={createTask} />
 
       {view === "board" ? (

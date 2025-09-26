@@ -1,9 +1,10 @@
 "use client";
 
 export default function NewTaskForm({ form, setForm, onSubmit }) {
-  return (
-    <form id="new" onSubmit={onSubmit} className="rounded-2xl border border-base bg-card p-4">
+  return ( // 1. เวลาผู้ใช้กดปุ่ม Add Task input → onSubmitจะทำงานไปเชื่อมกับ<NewTaskForm>ในPage.js
+    <form id="new" onSubmit={onSubmit} className="rounded-2xl border border-base bg-card p-4"> 
       <div className="grid gap-3 md:grid-cols-2">
+        {/* กรอกTitle */}
         <input
           required
           value={form.title}
@@ -11,6 +12,7 @@ export default function NewTaskForm({ form, setForm, onSubmit }) {
           placeholder="Title"
           className="rounded-xl border border-base bg-card text-base px-3 py-2"
         />
+        {/* กรอกAssignee */}
         <input
           value={form.assignee}
           onChange={(e) => setForm((f) => ({ ...f, assignee: e.target.value }))}
@@ -19,6 +21,7 @@ export default function NewTaskForm({ form, setForm, onSubmit }) {
         />
       </div>
       <div className="mt-3 grid gap-3 md:grid-cols-[1fr,180px,auto]">
+        {/* กรอกDescription */}
         <textarea
           rows={3}
           value={form.description}
@@ -26,6 +29,7 @@ export default function NewTaskForm({ form, setForm, onSubmit }) {
           placeholder="Description"
           className="rounded-xl border border-base bg-card text-base px-3 py-2"
         />
+        {/* กรอกDate */}
         <input
           type="date"
           value={form.due_date}

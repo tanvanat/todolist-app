@@ -1,6 +1,7 @@
 "use client";
-import { useState } from "react";
+import { useState } from "react"; //ใช้สร้างstateภายในcomponent
 
+{/* IconButton คือปุ่มโหมดปกติ (ไม่ได้แก้ไข)✏️, 🗑️เเละโหมดแก้ไข ✔️,❌*/}
 function IconButton({ title, onClick, children }) {
   return (
     <button
@@ -17,6 +18,7 @@ const TrashIcon  = (p) => (<svg viewBox="0 0 24 24" fill="none" stroke="currentC
 const CheckIcon  = (p) => (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-4 w-4" {...p}><path d="M20 6L9 17l-5-5" /></svg>);
 const XIcon      = (p) => (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-4 w-4" {...p}><path d="M18 6L6 18M6 6l12 12" /></svg>);
 
+{/* mapสำหรับเปลี่ยนค่าstatusเป็นlabelที่แสดงผล */}
 const statusLabel = { todo: "To Do", in_progress: "In Progress", done: "Done" };
 
 function StatusButton({ variant, active, onClick, children }) {
@@ -27,6 +29,7 @@ function StatusButton({ variant, active, onClick, children }) {
     done: "status-done",
   }[variant];
 
+  {/* ถ้าstatusนั้นเป็น active → จะเปลี่ยนสีพื้นหลังและdisableปุ่มนั้น*/}
   const activeCls = {
     todo: "bg-[#3b82f6] text-white border-[#3b82f6]",
     in_progress: "bg-[#f59e0b] text-black border-[#f59e0b]",
@@ -47,8 +50,8 @@ function StatusButton({ variant, active, onClick, children }) {
 }
 
 export default function TaskCard({ t, onMove, onDelete, onUpdate }) {
-  const [editing, setEditing] = useState(false);
-  const [etitle, setETitle] = useState(t.title);
+  const [editing, setEditing] = useState(false); //editing → true ถ้าอยู่โหมดแก้ไข
+  const [etitle, setETitle] = useState(t.title); //etitle, edesc → ค่า title/description ระหว่างแก้ไข
   const [edesc, setEDesc] = useState(t.description || "");
 
   const date = t.due_date ? new Date(t.due_date).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : null;
@@ -59,7 +62,7 @@ export default function TaskCard({ t, onMove, onDelete, onUpdate }) {
     const title = (etitle || "").trim(); if (!title) return;
     await onUpdate?.(t.id, { title, description: edesc }); setEditing(false);
   };
-  const onKeyDown = (e) => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) saveEdit(); else if (e.key === "Escape") cancelEdit(); };
+  const onKeyDown = (e) => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) saveEdit(); else if (e.key === "Escape") cancelEdit(); }; //onKeyDown → กด Ctrl+Enter เพื่อบันทึก, กด Esc เพื่อยกเลิก
 
   return (
     <div className="relative rounded-2xl border border-base bg-card text-base p-4 backdrop-blur-sm">
@@ -77,7 +80,7 @@ export default function TaskCard({ t, onMove, onDelete, onUpdate }) {
           </>
         )}
       </div>
-
+      {/* โหมดแสดงปกติ */}
       {!editing ? (
         <>
           <div className="font-medium">{t.title}</div>
@@ -130,3 +133,10 @@ export default function TaskCard({ t, onMove, onDelete, onUpdate }) {
     </div>
   );
 }
+
+/* function TaskCard
+t → task object (มี id, title, description, status, assignee, due_date)
+onMove → callback เมื่อเปลี่ยน status
+onDelete → callback เมื่อลบ task
+onUpdate → callback เมื่อแก้ไข task
+ */

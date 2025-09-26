@@ -11,6 +11,7 @@ export function IconButton({ title, onClick, children }) {
 }
 
 // icons
+//propsคือค่าต่างๆที่ใช้สร้างicon
 export const PencilIcon = (props) => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-4 w-4" {...props}>
     <path d="M12 20h9" />

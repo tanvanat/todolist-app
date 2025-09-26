@@ -1,13 +1,16 @@
+{/* objectที่map keyของสถานะ*/}
 const statusLabel = {
   todo: "To Do",
   in_progress: "In Progress",
   done: "Done",
 };
 
+{/* ปุ่มสถานะ 1 ปุ่ม */}
 function StatusButton({ variant, active, onClick, children }) {
   const base =
     "inline-flex h-9 w-full items-center justify-center rounded-lg border text-xs transition-colors duration-150";
-
+  
+  {/*สไตล์พื้นฐานของปุ่ม 1.normal = ปุ่มยังไม่ถูกเลือก, 2.active = ปุ่มถูกเลือกแล้ว*/}
   const styles = {
     todo: {
       normal:
@@ -37,18 +40,19 @@ function StatusButton({ variant, active, onClick, children }) {
       onClick={active ? undefined : onClick}
       className={`${base} ${active ? styles.active : styles.normal}`}
     >
-      {children}
+      {children} {/* <= นี่แหละ children */}
     </button>
   );
 }
 
+{/* กลุ่มปุ่มสถานะ 3 ปุ่ม (คอมโพเนนต์ที่ประกอบจาก StatusButton) */}
 export default function StatusGroup({ value, onChange }) {
   return (
     <div className="grid grid-cols-3 gap-2">
       {Object.entries(statusLabel).map(([key, label]) => (
         <StatusButton
           key={key}
-          variant={key}
+          variant={key} //todo, in_progress, done
           active={value === key}
           onClick={() => onChange(key)}
         >
