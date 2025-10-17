@@ -1,0 +1,84 @@
+name: CI build & push (todolist-app)
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        include:
+          - name: frontend
+            context: ./my-app           # ปรับให้ตรงกับที่เก็บ Dockerfile ของ frontend
+            image: registry.nipa.cloud/front-test-1/my-app
+          - name: backend
+            context: ./api              # ปรับให้ตรงกับที่เก็บ Dockerfile ของ backend
+            image: registry.nipa.cloud/front-test-1/api
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # (ถ้าต้องการรัน unit test ของ Node.js ให้เปิดสองสเต็ปนี้และปรับ path)
+      - name: Setup Node (optional for tests)
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+      - name: Install & Test (optional)
+        run: |
+          if [ -f "${{ matrix.context }}/package.json" ]; then
+            npm ci --prefix ${{ matrix.context }}
+            npm test --prefix ${{ matrix.context }} --if-present
+          fi
+
+      - name: Login to Nipa Registry
+        uses: docker/login-action@v3
+        with:
+          registry: registry.nipa.cloud
+          username: ${{ secrets.NIPA_REGISTRY_USERNAME }}
+          password: ${{ secrets.NIPA_REGISTRY_PASSWORD }}
+
+      - name: Extract metadata (tags, labels)
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ matrix.image }}
+          tags: |
+            type=sha
+            type=raw,value=latest
+
+      - name: Build & Push
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          push: true
+          provenance: false
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+      - name: Show pushed digest
+        run: echo "Pushed digest for ${{ matrix.name }} => ${{ steps.build.outputs.digest }}"
+        # คุณสามารถใช้ค่าด้านบนไปอัปเดตไฟล์ manifest ให้ pin เป็น @sha256 ได้ในสเต็ปถัดไป
+
+  # (ทางเลือก) อัปเดต manifest ให้ pin digest สำหรับ GitOps (ต้องให้ repo เดียวกันเป็นที่ Argo เฝ้า)
+  # update-manifests:
+  #   runs-on: ubuntu-latest
+  #   needs: build-and-push
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - name: Update values with digest (example)
+  #       run: |
+  #         # สมมติคุณมีไฟล์ Helm values ชื่อ apps/todolist/envs/non/values.yaml
+  #         # และต้องการแทนที่ image เป็น repo@sha256:<DIGEST>
+  #         # ใส่สคริปต์แก้ไฟล์ + commit + push ที่นี่
+  #     - name: Commit & push
+  #       run: |
+  #         git config user.name "github-actions"
+  #         git config user.email "actions@github.com"
+  #         git commit -am "chore(ci): update image digest"
+  #         git push
