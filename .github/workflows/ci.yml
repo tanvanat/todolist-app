@@ -6,6 +6,9 @@ on:
   pull_request:
     branches: [ "main" ]
 
+permissions:
+  contents: write   # <— ต้องมี เพื่อให้ workflow สร้าง/ push git tag ได้
+
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
@@ -14,16 +17,61 @@ jobs:
       matrix:
         include:
           - name: frontend
-            context: ./my-app           # ปรับให้ตรงกับที่เก็บ Dockerfile ของ frontend
+            context: ./my-app
             image: registry.nipa.cloud/front-test-1/my-app
           - name: backend
-            context: ./api              # ปรับให้ตรงกับที่เก็บ Dockerfile ของ backend
+            context: ./api
             image: registry.nipa.cloud/front-test-1/api
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # <— ดึงประวัติ tags มาด้วย
 
-      # (ถ้าต้องการรัน unit test ของ Node.js ให้เปิดสองสเต็ปนี้และปรับ path)
+      # ===== (เฉพาะ push ไป main) คำนวณ tag ใหม่แบบ bump patch แล้วสร้าง tag =====
+      - name: Bump patch tag (only on push to main)
+        id: bump
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        shell: bash
+        run: |
+          git fetch --tags
+
+          # อ่าน tag ล่าสุด; ถ้าไม่มีให้เริ่มที่ 1.0.0
+          LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "1.0.0")
+          # รองรับรูปแบบที่มี 'v' นำหน้าได้ เช่น v1.0.2
+          CLEAN_LAST=${LAST_TAG#v}
+
+          IFS='.' read -r MAJ MIN PAT <<< "$CLEAN_LAST"
+          NEW_TAG="$MAJ.$MIN.$((PAT+1))"
+          echo "Last tag: $LAST_TAG"
+          echo "New tag: $NEW_TAG"
+
+          # ตั้งค่าผู้ใช้สำหรับสร้าง tag
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # สร้าง tag แบบมี v และ push ขึ้น origin
+          git tag -a "v$NEW_TAG" -m "ci: release v$NEW_TAG"
+          git push origin "v$NEW_TAG"
+
+          # ส่งออกค่าให้ step ถัดไปใช้
+          echo "NEW_TAG=$NEW_TAG" >> "$GITHUB_OUTPUT"
+
+      # (ถ้าเป็น PR จะไม่มี step bump ข้างบน ให้ fallback เป็น tag แบบ sha)
+      - name: Set version env
+        id: setver
+        shell: bash
+        run: |
+          if [ -n "${{ steps.bump.outputs.NEW_TAG }}" ]; then
+            echo "VERSION_TAG=${{ steps.bump.outputs.NEW_TAG }}" >> "$GITHUB_ENV"
+          else
+            # สำหรับ PR/กิ่งอื่น ใช้ short SHA
+            echo "VERSION_TAG=${GITHUB_SHA::7}" >> "$GITHUB_ENV"
+          fi
+          echo "Using VERSION_TAG=$VERSION_TAG"
+
+      # (ถ้าต้องการรัน unit test ของ Node.js)
       - name: Setup Node (optional for tests)
         uses: actions/setup-node@v4
         with:
@@ -48,8 +96,13 @@ jobs:
         with:
           images: ${{ matrix.image }}
           tags: |
-            type=sha
-            type=raw,value=latest
+            type=raw,value=${{ env.VERSION_TAG }}               # 1.0.3 (หรือ 7-char sha เมื่อเป็น PR)
+            type=raw,value=v${{ env.VERSION_TAG }}             # v1.0.3
+            type=sha                                           # sha-<commit>
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
 
       - name: Build & Push
         id: build
@@ -60,25 +113,11 @@ jobs:
           provenance: false
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
       - name: Show pushed digest
-        run: echo "Pushed digest for ${{ matrix.name }} => ${{ steps.build.outputs.digest }}"
-        # คุณสามารถใช้ค่าด้านบนไปอัปเดตไฟล์ manifest ให้ pin เป็น @sha256 ได้ในสเต็ปถัดไป
-
-  # (ทางเลือก) อัปเดต manifest ให้ pin digest สำหรับ GitOps (ต้องให้ repo เดียวกันเป็นที่ Argo เฝ้า)
-  # update-manifests:
-  #   runs-on: ubuntu-latest
-  #   needs: build-and-push
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #     - name: Update values with digest (example)
-  #       run: |
-  #         # สมมติคุณมีไฟล์ Helm values ชื่อ apps/todolist/envs/non/values.yaml
-  #         # และต้องการแทนที่ image เป็น repo@sha256:<DIGEST>
-  #         # ใส่สคริปต์แก้ไฟล์ + commit + push ที่นี่
-  #     - name: Commit & push
-  #       run: |
-  #         git config user.name "github-actions"
-  #         git config user.email "actions@github.com"
-  #         git commit -am "chore(ci): update image digest"
-  #         git push
+        run: |
+          echo "Pushed digest for ${{ matrix.name }} => ${{ steps.build.outputs.digest }}"
+          echo "Tags used:"
+          echo "${{ steps.meta.outputs.tags }}"
