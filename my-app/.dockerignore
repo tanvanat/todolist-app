@@ -4,3 +4,6 @@ node_modules
 .gitignore
 npm-debug.log
 README.md
+Dockerfile
+build
+dist

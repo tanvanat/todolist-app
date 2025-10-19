@@ -21,7 +21,7 @@ ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
 
 # Copyเฉพาะไฟล์ที่จำเป็นต่อการรัน
-COPY --from=builder /app/public ./public
+# COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 
