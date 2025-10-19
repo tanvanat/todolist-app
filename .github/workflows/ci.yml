@@ -7,12 +7,72 @@ on:
     branches: [ "main" ]
 
 permissions:
-  contents: write   # <— ต้องมี เพื่อให้ workflow สร้าง/ push git tag ได้
+  contents: write       # ต้องมี เพื่อสร้าง/อัปเดตแท็ก
+  packages: write
+
+# กันการชนกันขณะ push tag / build ซ้ำ ๆ
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
+  # ----------------------------------------------------------
+  # 1) Bump เวอร์ชัน "ครั้งเดียว" เฉพาะ push -> main
+  # ----------------------------------------------------------
+  bump_tag:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    outputs:
+      version_tag: ${{ steps.bump.outputs.VERSION_TAG }}
+      tag_ref:     ${{ steps.bump.outputs.TAG_REF }}
+    steps:
+      - name: Checkout (full history)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Fetch all tags
+        run: git fetch --tags --force
+
+      - name: Compute next patch & push tag (once)
+        id: bump
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # อ่าน tag ล่าสุดจาก remote; ถ้าไม่มีเริ่ม 1.0.0
+          LAST_TAG="$(git describe --tags --abbrev=0 2>/dev/null || echo 'v1.0.0')"
+          CLEAN_LAST="${LAST_TAG#v}"
+
+          IFS='.' read -r MAJ MIN PAT <<< "$CLEAN_LAST"
+          NEXT="v${MAJ}.${MIN}.$((PAT+1))"
+
+          echo "LAST_TAG=$LAST_TAG"
+          echo "NEXT=$NEXT"
+
+          # ถ้า NEXT มีอยู่แล้ว ให้ไล่หาตัวถัดไปจนกว่าจะว่าง (กันกรณี rerun)
+          while git rev-parse -q --verify "refs/tags/${NEXT}" >/dev/null; do
+            IFS='.' read -r MAJ MIN PAT <<< "${NEXT#v}"
+            NEXT="v${MAJ}.${MIN}.$((PAT+1))"
+          done
+
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git tag -a "$NEXT" -m "ci: release ${NEXT}"
+          git push origin "$NEXT"
+
+          echo "VERSION_TAG=${NEXT#v}"        >> "$GITHUB_OUTPUT"   # เช่น 1.0.3
+          echo "TAG_REF=$NEXT"                >> "$GITHUB_OUTPUT"   # เช่น v1.0.3
+
+  # ----------------------------------------------------------
+  # 2) Build & Push (รันทั้ง push และ PR)
+  #    - ถ้าเป็น push main: ใช้เวอร์ชันจาก bump_tag
+  #    - ถ้าเป็น PR: ใช้ short SHA
+  # ----------------------------------------------------------
   build-and-push:
     runs-on: ubuntu-latest
-
+    needs: [bump_tag]
     strategy:
       matrix:
         include:
@@ -27,52 +87,23 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0   # <— ดึงประวัติ tags มาด้วย
+          fetch-depth: 0
 
-      # ===== (เฉพาะ push ไป main) คำนวณ tag ใหม่แบบ bump patch แล้วสร้าง tag =====
-      - name: Bump patch tag (only on push to main)
-        id: bump
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        shell: bash
-        run: |
-          git fetch --tags
-
-          # อ่าน tag ล่าสุด; ถ้าไม่มีให้เริ่มที่ 1.0.0
-          LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "1.0.0")
-          # รองรับรูปแบบที่มี 'v' นำหน้าได้ เช่น v1.0.2
-          CLEAN_LAST=${LAST_TAG#v}
-
-          IFS='.' read -r MAJ MIN PAT <<< "$CLEAN_LAST"
-          NEW_TAG="$MAJ.$MIN.$((PAT+1))"
-          echo "Last tag: $LAST_TAG"
-          echo "New tag: $NEW_TAG"
-
-          # ตั้งค่าผู้ใช้สำหรับสร้าง tag
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-
-          # สร้าง tag แบบมี v และ push ขึ้น origin
-          git tag -a "v$NEW_TAG" -m "ci: release v$NEW_TAG"
-          git push origin "v$NEW_TAG"
-
-          # ส่งออกค่าให้ step ถัดไปใช้
-          echo "NEW_TAG=$NEW_TAG" >> "$GITHUB_OUTPUT"
-
-      # (ถ้าเป็น PR จะไม่มี step bump ข้างบน ให้ fallback เป็น tag แบบ sha)
-      - name: Set version env
+      - name: Set VERSION_TAG
         id: setver
         shell: bash
         run: |
-          if [ -n "${{ steps.bump.outputs.NEW_TAG }}" ]; then
-            echo "VERSION_TAG=${{ steps.bump.outputs.NEW_TAG }}" >> "$GITHUB_ENV"
+          if [[ "${{ github.event_name }}" == "push" && "${{ github.ref }}" == "refs/heads/main" ]]; then
+            # รับค่าจาก job bump_tag
+            echo "VERSION_TAG=${{ needs.bump_tag.outputs.version_tag }}" >> "$GITHUB_ENV"
           else
-            # สำหรับ PR/กิ่งอื่น ใช้ short SHA
+            # สำหรับ PR ใช้ short SHA
             echo "VERSION_TAG=${GITHUB_SHA::7}" >> "$GITHUB_ENV"
           fi
           echo "Using VERSION_TAG=$VERSION_TAG"
 
       # (ถ้าต้องการรัน unit test ของ Node.js)
-      - name: Setup Node (optional for tests)
+      - name: Setup Node (optional tests)
         uses: actions/setup-node@v4
         with:
           node-version: 18
@@ -96,10 +127,10 @@ jobs:
         with:
           images: ${{ matrix.image }}
           tags: |
-            type=raw,value=${{ env.VERSION_TAG }}               # 1.0.3 (หรือ 7-char sha เมื่อเป็น PR)
-            type=raw,value=v${{ env.VERSION_TAG }}             # v1.0.3
-            type=sha                                           # sha-<commit>
-            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+            type=raw,value=${{ env.VERSION_TAG }}                            # 1.0.x หรือ <sha7>
+            type=raw,value=v${{ env.VERSION_TAG }},enable=${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+            type=sha
+            type=raw,value=latest,enable=${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
 
       - name: Set up Buildx
         uses: docker/setup-buildx-action@v3
@@ -119,5 +150,5 @@ jobs:
       - name: Show pushed digest
         run: |
           echo "Pushed digest for ${{ matrix.name }} => ${{ steps.build.outputs.digest }}"
-          echo "Tags used:"
+          echo "Tags:"
           echo "${{ steps.meta.outputs.tags }}"
