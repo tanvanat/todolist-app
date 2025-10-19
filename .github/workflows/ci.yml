@@ -7,24 +7,23 @@ on:
     branches: [ "main" ]
 
 permissions:
-  contents: write       # ต้องมี เพื่อสร้าง/อัปเดตแท็ก
+  contents: write   # สำหรับสร้าง/อัปเดต git tag
   packages: write
 
-# กันการชนกันขณะ push tag / build ซ้ำ ๆ
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
   # ----------------------------------------------------------
-  # 1) Bump เวอร์ชัน "ครั้งเดียว" เฉพาะ push -> main
+  # 1) คำนวณเวอร์ชันใหม่ (เฉพาะ push -> main) และสร้าง git tag
+  #    ผลลัพธ์: outputs.version_tag = 1.0.x
   # ----------------------------------------------------------
   bump_tag:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     outputs:
       version_tag: ${{ steps.bump.outputs.VERSION_TAG }}
-      tag_ref:     ${{ steps.bump.outputs.TAG_REF }}
     steps:
       - name: Checkout (full history)
         uses: actions/checkout@v4
@@ -40,17 +39,14 @@ jobs:
         run: |
           set -euo pipefail
 
-          # อ่าน tag ล่าสุดจาก remote; ถ้าไม่มีเริ่ม 1.0.0
+          # อ่าน tag ล่าสุดจาก remote; ถ้าไม่มีให้เริ่มที่ v1.0.0
           LAST_TAG="$(git describe --tags --abbrev=0 2>/dev/null || echo 'v1.0.0')"
           CLEAN_LAST="${LAST_TAG#v}"
 
           IFS='.' read -r MAJ MIN PAT <<< "$CLEAN_LAST"
           NEXT="v${MAJ}.${MIN}.$((PAT+1))"
 
-          echo "LAST_TAG=$LAST_TAG"
-          echo "NEXT=$NEXT"
-
-          # ถ้า NEXT มีอยู่แล้ว ให้ไล่หาตัวถัดไปจนกว่าจะว่าง (กันกรณี rerun)
+          # กันกรณี rerun แล้ว tag มีอยู่แล้ว
           while git rev-parse -q --verify "refs/tags/${NEXT}" >/dev/null; do
             IFS='.' read -r MAJ MIN PAT <<< "${NEXT#v}"
             NEXT="v${MAJ}.${MIN}.$((PAT+1))"
@@ -62,15 +58,16 @@ jobs:
           git tag -a "$NEXT" -m "ci: release ${NEXT}"
           git push origin "$NEXT"
 
-          echo "VERSION_TAG=${NEXT#v}"        >> "$GITHUB_OUTPUT"   # เช่น 1.0.3
-          echo "TAG_REF=$NEXT"                >> "$GITHUB_OUTPUT"   # เช่น v1.0.3
+          # ส่งออกเฉพาะตัวเลข 1.0.x (ไม่มี v นำหน้า)
+          echo "VERSION_TAG=${NEXT#v}" >> "$GITHUB_OUTPUT"
 
   # ----------------------------------------------------------
-  # 2) Build & Push (รันทั้ง push และ PR)
-  #    - ถ้าเป็น push main: ใช้เวอร์ชันจาก bump_tag
-  #    - ถ้าเป็น PR: ใช้ short SHA
+  # 2) Build & Push images (เฉพาะ push main)
+  #    - ใช้เวอร์ชันจาก bump_tag
+  #    - ติด '1.0.x' เพียงแท็กเดียว
   # ----------------------------------------------------------
   build-and-push:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     needs: [bump_tag]
     strategy:
@@ -89,30 +86,8 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Set VERSION_TAG
-        id: setver
-        shell: bash
-        run: |
-          if [[ "${{ github.event_name }}" == "push" && "${{ github.ref }}" == "refs/heads/main" ]]; then
-            # รับค่าจาก job bump_tag
-            echo "VERSION_TAG=${{ needs.bump_tag.outputs.version_tag }}" >> "$GITHUB_ENV"
-          else
-            # สำหรับ PR ใช้ short SHA
-            echo "VERSION_TAG=${GITHUB_SHA::7}" >> "$GITHUB_ENV"
-          fi
-          echo "Using VERSION_TAG=$VERSION_TAG"
-
-      # (ถ้าต้องการรัน unit test ของ Node.js)
-      - name: Setup Node (optional tests)
-        uses: actions/setup-node@v4
-        with:
-          node-version: 18
-      - name: Install & Test (optional)
-        run: |
-          if [ -f "${{ matrix.context }}/package.json" ]; then
-            npm ci --prefix ${{ matrix.context }}
-            npm test --prefix ${{ matrix.context }} --if-present
-          fi
+      - name: Set VERSION_TAG (from bump_tag)
+        run: echo "VERSION_TAG=${{ needs.bump_tag.outputs.version_tag }}" >> "$GITHUB_ENV"
 
       - name: Login to Nipa Registry
         uses: docker/login-action@v3
@@ -121,22 +96,19 @@ jobs:
           username: ${{ secrets.NIPA_REGISTRY_USERNAME }}
           password: ${{ secrets.NIPA_REGISTRY_PASSWORD }}
 
-      - name: Extract metadata (tags, labels)
+      # ตั้งให้มี "แท็กเดียว" คือ 1.0.x
+      - name: Extract metadata (single tag only)
         id: meta
         uses: docker/metadata-action@v5
         with:
           images: ${{ matrix.image }}
           tags: |
-            type=raw,value=${{ env.VERSION_TAG }}                            # 1.0.x หรือ <sha7>
-            type=raw,value=v${{ env.VERSION_TAG }},enable=${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-            type=sha
-            type=raw,value=latest,enable=${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+            type=raw,value=${{ env.VERSION_TAG }}
 
       - name: Set up Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build & Push
-        id: build
+      - name: Build & Push (${{ matrix.name }})
         uses: docker/build-push-action@v6
         with:
           context: ${{ matrix.context }}
@@ -147,8 +119,31 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Show pushed digest
-        run: |
-          echo "Pushed digest for ${{ matrix.name }} => ${{ steps.build.outputs.digest }}"
-          echo "Tags:"
-          echo "${{ steps.meta.outputs.tags }}"
+  # ----------------------------------------------------------
+  # 3) Build (no push) สำหรับ PR — ไม่มีการสร้างแท็ก/พุชภาพ
+  # ----------------------------------------------------------
+  pr-build-only:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - name: frontend
+            context: ./my-app
+          - name: backend
+            context: ./api
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build only (${{ matrix.name }}) - no push, no tags
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          push: false
+          provenance: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
