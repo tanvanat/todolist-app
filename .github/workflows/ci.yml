@@ -76,10 +76,10 @@ jobs:
       matrix:
         include:
           - name: my-app
-            context: ./my-app               # ปรับตามโครงสร้างจริง
+            context: ./my-app
             image: registry.nipa.cloud/front-test-1/my-app
           - name: tasks-api
-            context: ./tasks-api            # ถ้าโฟลเดอร์คุณชื่อ ./api ให้เปลี่ยนเป็น ./api
+            context: ./api
             image: registry.nipa.cloud/front-test-1/tasks-api
 
     steps:
