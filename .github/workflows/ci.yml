@@ -7,7 +7,7 @@ on:
     branches: [ "main" ]
 
 permissions:
-  contents: write   # สร้าง/อัปเดต git tag
+  contents: write
   packages: write
 
 concurrency:
@@ -15,9 +15,6 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  # ----------------------------------------------------------
-  # 1) Compute next version (แต่ "ยังไม่" สร้าง tag) — ใช้เลขนี้ตลอดทั้งรัน
-  # ----------------------------------------------------------
   compute_version:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
@@ -35,16 +32,12 @@ jobs:
           CLEAN_LAST="${LAST_TAG#v}"
           IFS='.' read -r MAJ MIN PAT <<< "$CLEAN_LAST"
           NEXT="v${MAJ}.${MIN}.$((PAT+1))"
-          # กันกรณีชน tag จากรอบก่อน
           while git rev-parse -q --verify "refs/tags/${NEXT}" >/dev/null; do
             IFS='.' read -r MAJ MIN PAT <<< "${NEXT#v}"
             NEXT="v${MAJ}.${MIN}.$((PAT+1))"
           done
           echo "VERSION_TAG=${NEXT#v}" >> "$GITHUB_OUTPUT"
 
-  # ----------------------------------------------------------
-  # 2) BUILD-ONLY ทั้งสองภาพ (ไม่ push) — ถ้าภาพใด fail ให้ล้มทั้งงาน
-  # ----------------------------------------------------------
   build_only:
     runs-on: ubuntu-latest
     needs: [compute_version]
@@ -77,10 +70,6 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-  # ----------------------------------------------------------
-  # 3) PUSH ทั้งสองภาพ (ใช้ cache จากเฟสก่อน) — ติด tag เดียว 1.0.x
-  #    รันก็ต่อเมื่อ build_only ทั้งคู่ผ่าน
-  # ----------------------------------------------------------
   push_images:
     runs-on: ubuntu-latest
     needs: [compute_version, build_only]
@@ -124,12 +113,9 @@ jobs:
           provenance: false
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha        # ทำให้รอบ push เร็วขึ้นเพราะรีบิวด์จาก cache
+          cache-from: type=gha
           cache-to: type=gha,mode=max
 
-  # ----------------------------------------------------------
-  # 4) CREATE TAG ใน Git — ทำหลัง push สำเร็จครบทุกภาพ
-  # ----------------------------------------------------------
   create_git_tag:
     runs-on: ubuntu-latest
     needs: [compute_version, push_images]
@@ -141,7 +127,7 @@ jobs:
           VERSION="${{ needs.compute_version.outputs.version_tag }}"
           git fetch --tags --force
           if git rev-parse -q --verify "refs/tags/v${VERSION}" >/dev/null; then
-            echo "Tag v${VERSION} มีอยู่แล้ว — ข้าม"
+            echo "Tag v${VERSION} exists — skip"
             exit 0
           fi
           git config user.name  "github-actions[bot]"
@@ -149,9 +135,6 @@ jobs:
           git tag -a "v${VERSION}" -m "ci: release v${VERSION}"
           git push origin "v${VERSION}"
 
-  # ----------------------------------------------------------
-  # 5) PR: build เพื่อตรวจสอบเท่านั้น (ไม่ push, ไม่สร้าง tag)
-  # ----------------------------------------------------------
   pr-build-only:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
